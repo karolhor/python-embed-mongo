@@ -11,6 +11,8 @@ readme = "README.md"
 
 [tool.poetry.dependencies]
 python = "^3.5"
+requests = "^2.20"
+tqdm = "^4.28"
 
 [tool.poetry.dev-dependencies]
 pytest = "^3.0"
