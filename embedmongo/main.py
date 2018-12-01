@@ -12,11 +12,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import requests
-import tqdm
+import io
 import logging
 
-import io
+import requests
+import tqdm
+
 logger = logging.getLogger(__name__)
 
 
@@ -47,9 +48,17 @@ def download_package(url):
     with open(package_name, "wb") as f, requests.get(url, stream=True) as r:
         logger.info("Downloading {}".format(url))
         chunk_size = 1024*1024
-        tqdm_out = TqdmToLogger(logger,level=logging.INFO)
+        tqdm_out = TqdmToLogger(logger, level=logging.INFO)
         bar_format = "{desc}: {percentage:3.0f}% | {n_fmt}/{total_fmt} [{elapsed}, {rate_fmt}{postfix}]"
-        with tqdm.tqdm(total=int(r.headers.get('content-length')), miniters=1, unit_scale=True, unit='B', desc=package_name, file=tqdm_out, bar_format=bar_format) as pbar:
+        with tqdm.tqdm(
+                total=int(r.headers.get('content-length')),
+                miniters=1,
+                unit_scale=True,
+                unit='B',
+                desc=package_name,
+                file=tqdm_out,
+                bar_format=bar_format
+        ) as pbar:
 
             for chunk in r.iter_content(chunk_size=chunk_size):
                 if chunk:
