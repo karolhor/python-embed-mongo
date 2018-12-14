@@ -13,6 +13,11 @@
 # limitations under the License.
 
 import logging
-logging.getLogger(__name__).addHandler(logging.NullHandler())
+
+from .core import EmbedMongo
+from .package import Version
 
 __version__ = '0.1.0'
+__all__ = ['EmbedMongo', 'Version']
+
+logging.getLogger(__name__).addHandler(logging.NullHandler())

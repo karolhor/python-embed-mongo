@@ -12,8 +12,18 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from embedmongo import __version__
+
+class EmbedMongoException(Exception):
+    """General module exception."""
 
 
-def test_version():
-    assert __version__ == '0.1.0'
+class PackageManagerException(EmbedMongoException):
+    """General exception for package management."""
+
+
+class PackageNotFoundException(PackageManagerException):
+    """Predefined package version not found."""
+
+
+class InvalidOSException(EmbedMongoException):
+    """Errors related with working OS, e.g. unsupported type."""

@@ -12,6 +12,23 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import pathlib
+import typing
+
+
+from .package import PackageDiscovery, PackageManager, Version
+
 
 class EmbedMongo:
-    pass
+    def __init__(self, workspace_dir: typing.Union[str, pathlib.Path] = pathlib.Path.home() / ".pyembedmongo"):
+        if isinstance(workspace_dir, str):
+            workspace_dir = pathlib.Path(workspace_dir)
+
+        self._workspace_dir = workspace_dir
+
+    def prepare(self, version: Version) -> None:
+        package = PackageDiscovery().create(version)
+
+        manager = PackageManager(self._workspace_dir)
+        local_pkg = manager.download(package)
+        manager.extract(local_pkg)

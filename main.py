@@ -12,8 +12,21 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from embedmongo import __version__
+import logging
+
+import embedmongo
+from embedmongo import EmbedMongo, Version
+
+logger = logging.getLogger(embedmongo.__name__)
 
 
-def test_version():
-    assert __version__ == '0.1.0'
+def main() -> None:
+    EmbedMongo().prepare(Version.V4_0_LATEST)
+
+
+if __name__ == '__main__':
+    logging.basicConfig()
+
+    logger.setLevel(logging.DEBUG)
+
+    main()

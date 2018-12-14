@@ -12,8 +12,26 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from embedmongo import __version__
+import io
+import logging
+import typing
 
 
-def test_version():
-    assert __version__ == '0.1.0'
+class TqdmToLogger(io.StringIO):
+    """
+        Output stream for TQDM which will output to logger module instead of
+        the StdOut.
+    """
+    def __init__(self, logger: 'logging.Logger', level: typing.Optional[int] = None):
+        super().__init__()
+        self.logger = logger
+        self.level = level or logging.INFO
+        self.buf = ''
+
+    def write(self, buf: str) -> int:
+        self.buf = buf.strip('\r\n\t ')
+
+        return len(buf)
+
+    def flush(self) -> None:
+        self.logger.log(self.level, self.buf)
