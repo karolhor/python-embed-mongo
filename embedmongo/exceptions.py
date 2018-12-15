@@ -27,3 +27,7 @@ class PackageNotFoundException(PackageManagerException):
 
 class InvalidOSException(EmbedMongoException):
     """Errors related with working OS, e.g. unsupported type."""
+
+
+class DownloadFileException(EmbedMongoException):
+    """Errors when file couldn't be downloaded."""

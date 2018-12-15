@@ -21,6 +21,7 @@ from typing import Optional
 import requests
 import tqdm
 
+from .exceptions import DownloadFileException
 from .log import TqdmToLogger
 
 logger = logging.getLogger(__name__)
@@ -33,10 +34,16 @@ def download_file(url: str, filename: str, dst: Path) -> None:
         if content_length:
             total_size = int(content_length)
 
-        if req.status_code == HTTPStatus.NOT_FOUND:
-            raise Exception("")  # TODO
+        if not req.ok:
+            error_msg = "Package file {file} couldn't be downloaded from {url}. Status code: {code}. Msg: {msg}".format(
+                url=url,
+                file=filename,
+                code=req.status_code,
+                msg=req.text
+            )
+            raise DownloadFileException(error_msg)
 
-        logger.debug("Downloaded file {name} size: {size}".format(name=filename, size=total_size))
+        logger.debug('Downloaded file {name} size: {size}'.format(name=filename, size=total_size))
         with _progress_bar(filename, total_size) as pgbar:
             chunk_size = 1024*1024
 
