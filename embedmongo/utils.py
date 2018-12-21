@@ -12,7 +12,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from http import HTTPStatus
 import logging
 from pathlib import Path
 import tarfile
@@ -53,13 +52,21 @@ def download_file(url: str, filename: str, dst: Path) -> None:
                     pgbar.update(len(chunk))
 
 
-def extract_file(src: Path, dst: Path, strip_level: Optional[int] = 1) -> None:
+def extract_file(src: Path, dst: Path, strip_level: Optional[int] = 0) -> None:
+    if strip_level is not None and strip_level < 0:
+        raise ValueError("strip_level argument should not be negative")
+
     with tarfile.open(str(src)) as tar:
+        members = []
         if strip_level:
             for member in tar.getmembers():
                 member.name = '/'.join(member.name.split('/')[strip_level:])
+                if member.name:
+                    members.append(member)
+        else:
+            members = tar.getmembers()
 
-        tar.extractall(path=str(dst))
+        tar.extractall(path=str(dst), members=members)
 
 
 def _progress_bar(desc: str, total: Optional[int]) -> tqdm.tqdm:

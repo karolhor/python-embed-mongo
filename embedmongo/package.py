@@ -79,7 +79,7 @@ class PackageManager:
         dst_dir = self._package_working_dir(pkg.version) / pkg.path.stem
         logger.info("Extracting {pkg} to {dst}".format(pkg=pkg.path.name, dst=dst_dir))
 
-        extract_file(pkg.path, dst_dir)
+        extract_file(pkg.path, dst_dir, strip_level=1)
 
         bin_dir = dst_dir / 'bin'
         logger.info(bin_dir)

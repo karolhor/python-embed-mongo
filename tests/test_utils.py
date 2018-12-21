@@ -14,11 +14,15 @@
 
 from http import HTTPStatus
 import io
+from pathlib import Path
 
 import pytest
 
-from embedmongo.utils import download_file
 from embedmongo.exceptions import DownloadFileException
+from embedmongo.utils import download_file, extract_file
+
+
+tar_file = Path(__file__).parent / 'res' / 'example.tar.gz'
 
 
 def test_download_file_success(tmp_path, requests_mock):
@@ -49,3 +53,31 @@ def test_download_file_fail(tmp_path, requests_mock):
         code=HTTPStatus.NOT_FOUND,
         msg=HTTPStatus.NOT_FOUND.phrase
     ) in str(excinfo.value)
+
+
+def test_extract_illegal_strip_level():
+    with pytest.raises(ValueError):
+        extract_file(Path(), Path(), -1)
+
+
+@pytest.mark.parametrize("strip_level,expected_path", [
+    (0, 'a/b/c/file.ext'),
+    (1, 'b/c/file.ext'),
+    (2, 'c/file.ext'),
+    (3, 'file.ext')
+])
+def test_extract_success(tmp_path, strip_level, expected_path):
+    expected_path = tmp_path / expected_path
+
+    extract_file(tar_file, tmp_path, strip_level)
+
+    assert expected_path.exists()
+
+
+def test_extract_no_files(tmp_path):
+    file_depth = 4
+    extract_file(tar_file, tmp_path, file_depth)
+
+    dst_subitems = [child for child in tmp_path.iterdir()]
+
+    assert len(dst_subitems) == 0
