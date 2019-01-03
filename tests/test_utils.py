@@ -22,7 +22,7 @@ from embedmongo.exceptions import DownloadFileException
 from embedmongo.utils import download_file, extract_file
 
 
-tar_file = Path(__file__).parent / 'res' / 'example.tar.gz'
+tar_file = Path(__file__).parent / 'res' / 'example.tgz'
 
 
 def test_download_file_success(tmp_path, requests_mock):
