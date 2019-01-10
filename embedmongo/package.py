@@ -13,10 +13,10 @@
 # limitations under the License.
 
 import enum
+import json
 import logging
 from pathlib import Path
-import typing
-
+from typing import Optional, Dict, Any, NamedTuple
 
 from .exceptions import PackageNotFoundException
 from .system import OSInfo, WorkingOSGuard
@@ -53,8 +53,52 @@ class Version(enum.Enum):
         self.version = version
 
 
-ExternalPackage = typing.NamedTuple('ExternalPackage', [('version', Version), ('url', 'str'), ('os_type', 'str'), ('filename', 'str')])
-LocalPackage = typing.NamedTuple('LocalPackage', [('version', Version), ('path', Path)])
+ExternalPackage = NamedTuple('ExternalPackage', [('version', Version), ('url', 'str'), ('os_type', 'str'), ('filename', 'str')])
+LocalPackage = NamedTuple('LocalPackage', [('version', Version), ('path', Path)])
+
+
+class _PkgMetadata:
+    def __init__(self, raw_data: Optional[Dict[str, Any]] = None):
+        if not raw_data:
+            raw_data = {}
+
+        download_data = raw_data.get('download', {})
+
+        self.download_etag = download_data.get('etag', None)
+        self.download_url = download_data.get('url', None)
+        self.download_filename = download_data.get('filename', None)
+
+    def to_json(self) -> str:
+        return json.dumps({
+            'download': {
+                'etag': self.download_etag,
+                'url': self.download_url,
+                'filename': self.download_filename
+            }
+        })
+
+
+class _VersionDir:
+    _METADATA_FILENAME = 'metadata.json'
+
+    def __init__(self, workspace_dir: Path, ext_pkg: ExternalPackage):
+        self.path = workspace_dir / ext_pkg.version.version
+        self.pkg_path = self.path / ext_pkg.filename
+        self.metadata_path = self.path / self._METADATA_FILENAME
+        self.version = ext_pkg.version
+
+        self.path.mkdir(parents=True, exist_ok=True)
+
+    def save_metadata(self, metadata: _PkgMetadata) -> None:
+        self.metadata_path.write_text(metadata.to_json())
+
+    def read_metadata(self) -> _PkgMetadata:
+        if not self.metadata_path.exists():
+            return _PkgMetadata()
+
+        content = json.loads(self.metadata_path.read_text())
+
+        return _PkgMetadata(content)
 
 
 class PackageManager:
@@ -67,13 +111,19 @@ class PackageManager:
     def download(self, pkg: ExternalPackage) -> LocalPackage:
         logger.info("Downloading {version} package from {url}".format(version=pkg.version.version, url=pkg.url))
 
-        working_dir = self._package_working_dir(pkg.version)
-        working_dir.mkdir(parents=True, exist_ok=True)
-        local_pkg_path = working_dir / pkg.filename
+        version_dir = _VersionDir(self._workspace_dir, pkg)
+        metadata = version_dir.read_metadata()
+        if not metadata.download_etag or not version_dir.pkg_path.exists():
+            etag = None
+        else:
+            etag = metadata.download_etag
 
-        download_file(pkg.url, pkg.filename, local_pkg_path)
+        metadata.download_etag = download_file(pkg.url, version_dir.pkg_path, etag)
+        metadata.download_url = pkg.url
+        metadata.download_filename = pkg.filename
+        version_dir.save_metadata(metadata)
 
-        return LocalPackage(version=pkg.version, path=local_pkg_path)
+        return LocalPackage(version=pkg.version, path=version_dir.pkg_path)
 
     def extract(self, pkg: LocalPackage) -> Path:
         dst_dir = self._package_working_dir(pkg.version) / pkg.path.stem

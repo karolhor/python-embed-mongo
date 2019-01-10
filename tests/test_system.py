@@ -12,21 +12,26 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import typing
+
 import pytest
 
 from embedmongo.exceptions import InvalidOSException
 from embedmongo.system import OSInfo, WorkingOSGuard
 
+if typing.TYPE_CHECKING:
+    from _pytest.monkeypatch import MonkeyPatch  # noqa: F401
+
 
 class TestOSInfo:
     def test_type_supported_linux(self, monkeypatch):
-        with monkeypatch.context() as m:
+        with monkeypatch.context() as m:  # type: MonkeyPatch
             m.setattr('platform.system', lambda: 'linux')
 
             assert OSInfo.type() == 'linux'
 
     def test_type_supported_osx(self, monkeypatch):
-        with monkeypatch.context() as m:
+        with monkeypatch.context() as m:  # type: MonkeyPatch
             m.setattr('platform.system', lambda: 'Darwin')
 
             assert OSInfo.type() == 'osx'
@@ -34,25 +39,25 @@ class TestOSInfo:
 
 class TestWorkingOSGuard:
     @pytest.mark.parametrize("os_type", ['linux', 'osx'])
-    def test_ensure_valid_type_with_supported_os(self, os_type, monkeypatch):
-        with monkeypatch.context() as m:
+    def test_ensure_valid_type_with_supported_os(self, os_type: str, monkeypatch):
+        with monkeypatch.context() as m:  # type: MonkeyPatch
             m.setattr(OSInfo, 'type', lambda: os_type)
             WorkingOSGuard.ensure_valid_type()
 
     def test_ensure_valid_type_raise_exception(self, monkeypatch):
-        with monkeypatch.context() as m, pytest.raises(InvalidOSException):
+        with monkeypatch.context() as m, pytest.raises(InvalidOSException):  # type: MonkeyPatch
             m.setattr(OSInfo, 'type', lambda: 'unknown')
 
             WorkingOSGuard.ensure_valid_type()
 
     def test_ensure_valid_architecture_with_supported_arch(self, monkeypatch):
-        with monkeypatch.context() as m:
+        with monkeypatch.context() as m:  # type: MonkeyPatch
             m.setattr(OSInfo, 'architecture', lambda: 'x86_64')
 
             WorkingOSGuard.ensure_valid_architecture()
 
     def test_ensure_valid_architecture_raise_exception(self, monkeypatch):
-        with monkeypatch.context() as m, pytest.raises(InvalidOSException):
+        with monkeypatch.context() as m, pytest.raises(InvalidOSException):  # type: MonkeyPatch
             m.setattr(OSInfo, 'architecture', lambda: 'i386')
 
             WorkingOSGuard.ensure_valid_architecture()

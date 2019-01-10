@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from http import HTTPStatus
 import logging
 from pathlib import Path
 import tarfile
@@ -26,9 +27,17 @@ from .log import TqdmToLogger
 logger = logging.getLogger(__name__)
 
 
-def download_file(url: str, filename: str, dst: Path) -> None:
-    with dst.open("wb") as local_file, requests.get(url, stream=True) as req:
+def download_file(url: str, dst: Path, etag: Optional[str] = None) -> Optional[str]:
+    headers = None
+    if etag:
+        headers = {'If-None-Match': etag}
+
+    filename = dst.name
+
+    with requests.get(url, headers=headers, stream=True) as req:
         content_length = req.headers.get('content-length')
+        new_etag = req.headers.get('etag')
+
         total_size = None
         if content_length:
             total_size = int(content_length)
@@ -41,15 +50,17 @@ def download_file(url: str, filename: str, dst: Path) -> None:
                 msg=req.text
             )
             raise DownloadFileException(error_msg)
+        elif req.status_code == HTTPStatus.OK:
+            logger.debug('Downloaded file {name} size: {size}'.format(name=filename, size=total_size))
+            with dst.open("wb") as local_file, _progress_bar(filename, total_size) as pgbar:
+                chunk_size = 1024*1024
 
-        logger.debug('Downloaded file {name} size: {size}'.format(name=filename, size=total_size))
-        with _progress_bar(filename, total_size) as pgbar:
-            chunk_size = 1024*1024
+                for chunk in req.iter_content(chunk_size=chunk_size):
+                    if chunk:
+                        local_file.write(chunk)
+                        pgbar.update(len(chunk))
 
-            for chunk in req.iter_content(chunk_size=chunk_size):
-                if chunk:
-                    local_file.write(chunk)
-                    pgbar.update(len(chunk))
+        return new_etag
 
 
 def extract_file(src: Path, dst: Path, strip_level: Optional[int] = 0) -> None:

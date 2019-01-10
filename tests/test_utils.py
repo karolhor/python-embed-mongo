@@ -15,37 +15,41 @@
 from http import HTTPStatus
 import io
 from pathlib import Path
+import typing
 
 import pytest
 
 from embedmongo.exceptions import DownloadFileException
 from embedmongo.utils import download_file, extract_file
 
+if typing.TYPE_CHECKING:
+    from _pytest._code import ExceptionInfo  # noqa: F401
+    from requests_mock import Mocker
 
 tar_file = Path(__file__).parent / 'res' / 'example.tgz'
 
 
-def test_download_file_success(tmp_path, requests_mock):
+def test_download_file_success(tmp_path: Path, requests_mock: 'Mocker'):
     url = 'https://example_url.com'
     file_content = b'example content'
     src_file = io.BytesIO(file_content)
-    dst_file = tmp_path / "file"  # type: 'Path'
+    dst_file = tmp_path / "file"  # type: Path
     requests_mock.get(url, body=src_file, status_code=HTTPStatus.OK)
 
-    download_file(url, 'filename', dst_file)
+    download_file(url, dst_file)
 
     assert dst_file.exists()
     assert dst_file.read_bytes() == file_content
 
 
-def test_download_file_fail(tmp_path, requests_mock):
+def test_download_file_fail(tmp_path: Path, requests_mock: 'Mocker'):
     url = 'https://example_url.com'
     filename = 'example.file'
 
     requests_mock.get(url, status_code=HTTPStatus.NOT_FOUND, text=HTTPStatus.NOT_FOUND.phrase)
 
-    with pytest.raises(DownloadFileException) as excinfo:
-        download_file(url, filename, tmp_path / "file")
+    with pytest.raises(DownloadFileException) as excinfo:  # type: ExceptionInfo
+        download_file(url, tmp_path / filename)
 
     assert "Package file {file} couldn't be downloaded from {url}. Status code: {code}. Msg: {msg}".format(
         file=filename,
@@ -66,15 +70,15 @@ def test_extract_illegal_strip_level():
     (2, 'c/file.ext'),
     (3, 'file.ext')
 ])
-def test_extract_success(tmp_path, strip_level, expected_path):
-    expected_path = tmp_path / expected_path
+def test_extract_success(tmp_path: Path, strip_level: int, expected_path: str):
+    expected_path = tmp_path / expected_path  # type: Path
 
     extract_file(tar_file, tmp_path, strip_level)
 
     assert expected_path.exists()
 
 
-def test_extract_no_files(tmp_path):
+def test_extract_no_files(tmp_path: Path):
     file_depth = 4
     extract_file(tar_file, tmp_path, file_depth)
 
