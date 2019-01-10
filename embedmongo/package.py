@@ -16,7 +16,7 @@ import enum
 import json
 import logging
 from pathlib import Path
-from typing import Optional, Dict, Any, NamedTuple
+from typing import Any, Dict, NamedTuple, Optional
 
 from .exceptions import PackageNotFoundException
 from .system import OSInfo, WorkingOSGuard
