@@ -16,6 +16,7 @@ import enum
 import json
 import logging
 from pathlib import Path
+import shutil
 from typing import Any, Dict, NamedTuple, Optional
 
 from .exceptions import PackageNotFoundException
@@ -53,8 +54,8 @@ class Version(enum.Enum):
         self.version = version
 
 
-ExternalPackage = NamedTuple('ExternalPackage', [('version', Version), ('url', 'str'), ('os_type', 'str'), ('filename', 'str')])
-LocalPackage = NamedTuple('LocalPackage', [('version', Version), ('path', Path)])
+ExternalPackage = NamedTuple('ExternalPackage', [('version', Version), ('url', str), ('os_type', str), ('filename', str)])
+LocalPackage = NamedTuple('LocalPackage', [('version', Version), ('path', Path), ('new_file', bool)])
 
 
 class _PkgMetadata:
@@ -81,11 +82,12 @@ class _PkgMetadata:
 class _VersionDir:
     _METADATA_FILENAME = 'metadata.json'
 
-    def __init__(self, workspace_dir: Path, ext_pkg: ExternalPackage):
-        self.path = workspace_dir / ext_pkg.version.version
-        self.pkg_path = self.path / ext_pkg.filename
+    def __init__(self, workspace_dir: Path, version: Version, archive_filename: str):
+        self.version = version
+        self.path = workspace_dir / self.version.version
+        self.archive_path = self.path / archive_filename
+        self.extracted_dir = self.path / self.archive_path.stem
         self.metadata_path = self.path / self._METADATA_FILENAME
-        self.version = ext_pkg.version
 
         self.path.mkdir(parents=True, exist_ok=True)
 
@@ -100,6 +102,14 @@ class _VersionDir:
 
         return _PkgMetadata(content)
 
+    @staticmethod
+    def from_ext_package(workspace_dir: Path, pkg: ExternalPackage) -> _VersionDir:
+        return _VersionDir(workspace_dir, pkg.version, pkg.filename)
+
+    @staticmethod
+    def from_local_package(workspace_dir: Path, pkg: LocalPackage) -> _VersionDir:
+        return _VersionDir(workspace_dir, pkg.version, pkg.path.name)
+
 
 class PackageManager:
     def __init__(self, workspace_dir: Path):
@@ -111,36 +121,42 @@ class PackageManager:
     def download(self, pkg: ExternalPackage) -> LocalPackage:
         logger.info("Downloading {version} package from {url}".format(version=pkg.version.version, url=pkg.url))
 
-        version_dir = _VersionDir(self._workspace_dir, pkg)
+        version_dir = _VersionDir.from_ext_package(self._workspace_dir, pkg)
         metadata = version_dir.read_metadata()
-        if not metadata.download_etag or not version_dir.pkg_path.exists():
+        if not metadata.download_etag or not version_dir.archive_path.exists():
             etag = None
         else:
             etag = metadata.download_etag
 
-        metadata.download_etag = download_file(pkg.url, version_dir.pkg_path, etag)
+        download_result = download_file(pkg.url, version_dir.archive_path, etag)
+        metadata.download_etag = download_result.etag
         metadata.download_url = pkg.url
         metadata.download_filename = pkg.filename
         version_dir.save_metadata(metadata)
 
-        return LocalPackage(version=pkg.version, path=version_dir.pkg_path)
+        return LocalPackage(version=pkg.version, path=version_dir.archive_path, new_file=download_result.saved)
 
     def extract(self, pkg: LocalPackage) -> Path:
-        dst_dir = self._package_working_dir(pkg.version) / pkg.path.stem
-        logger.info("Extracting {pkg} to {dst}".format(pkg=pkg.path.name, dst=dst_dir))
+        version_dir = _VersionDir.from_local_package(self._workspace_dir, pkg)
 
-        extract_file(pkg.path, dst_dir, strip_level=1)
+        # we don't want to ignore errors on rmtree, so it's important to call this when extracted directory exists
+        if pkg.new_file and version_dir.extracted_dir.exists():
+            logger.info("New version of archive {pkg}. Removing old extracted directory {dst}.".format(pkg=pkg.path.name, dst=version_dir.extracted_dir))
+            shutil.rmtree(str(version_dir.extracted_dir))
 
-        bin_dir = dst_dir / 'bin'
+        if not version_dir.extracted_dir.exists():
+            logger.info("Extracting {pkg} to {dst}".format(pkg=pkg.path.name, dst=version_dir.extracted_dir))
+            extract_file(pkg.path, version_dir.extracted_dir, strip_level=1)
+        else:
+            logger.info("No change of archive detected. Skipping pkg extraction.".format(pkg=pkg.path.name, dst=version_dir.extracted_dir))
+
+        bin_dir = version_dir.extracted_dir / 'bin'
         logger.info(bin_dir)
 
         return bin_dir
 
     def clean(self, pkg: LocalPackage) -> None:
         pass
-
-    def _package_working_dir(self, version: Version) -> Path:
-        return self._workspace_dir / version.version
 
 
 class PackageDiscovery:

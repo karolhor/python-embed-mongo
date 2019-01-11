@@ -42,6 +42,32 @@ def test_download_file_success(tmp_path: Path, requests_mock: 'Mocker'):
     assert dst_file.read_bytes() == file_content
 
 
+def test_download_with_etag(tmp_path: Path, requests_mock: 'Mocker'):
+    url = 'https://example_url.com'
+    dst_file = tmp_path / "file"  # type: Path
+    expected_etag = "abcd"
+    requests_mock.get(url, body=io.BytesIO(), headers={'ETag': expected_etag}, status_code=HTTPStatus.OK)
+
+    result = download_file(url, dst_file)
+
+    assert result.etag == expected_etag
+
+
+@pytest.mark.parametrize('is_saved,status_code', [
+    (True, HTTPStatus.OK),
+    (True, HTTPStatus.CREATED),
+    (False, HTTPStatus.NOT_MODIFIED),
+])
+def test_download_saved_matrix(tmp_path: Path, is_saved: bool, status_code: HTTPStatus, requests_mock: 'Mocker'):
+    url = 'https://example_url.com'
+    dst_file = tmp_path / "file"  # type: Path
+    requests_mock.get(url, body=io.BytesIO(), status_code=status_code)
+
+    result = download_file(url, dst_file)
+
+    assert result.saved == is_saved
+
+
 def test_download_file_fail(tmp_path: Path, requests_mock: 'Mocker'):
     url = 'https://example_url.com'
     filename = 'example.file'

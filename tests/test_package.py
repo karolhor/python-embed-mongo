@@ -14,6 +14,7 @@
 
 from http import HTTPStatus
 from pathlib import Path
+import shutil
 import typing
 
 import pytest
@@ -87,11 +88,11 @@ class TestPackageManager:
 
     @pytest.fixture
     def version_dir(self, workspace_dir: Path, external_file: _PKGFile, external_pkg: ExternalPackage) -> _VersionDir:
-        return _VersionDir(workspace_dir, external_pkg)
+        return _VersionDir.from_ext_package(workspace_dir, external_pkg)
 
     @pytest.fixture
     def loaded_version_dir(self, version_dir: _VersionDir, external_file: _PKGFile, external_pkg: ExternalPackage):
-        version_dir.pkg_path.write_bytes(external_file.local_path.read_bytes())
+        shutil.copy(str(external_file.local_path), str(version_dir.archive_path))
 
         metadata = _PkgMetadata()
         metadata.download_filename = external_pkg.filename
@@ -116,9 +117,12 @@ class TestPackageManager:
         requests_mock.get(TestPackageManager.PKG_URL, status_code=HTTPStatus.OK, body=external_file.ref)
         expected_filepath = workspace_dir / external_pkg.version.version / external_pkg.filename
 
-        PackageManager(workspace_dir).download(external_pkg)
+        local_pkg = PackageManager(workspace_dir).download(external_pkg)
 
         assert expected_filepath.exists()
+        assert local_pkg.path == expected_filepath
+        assert local_pkg.version == external_pkg.version
+        assert local_pkg.new_file is True
 
     def test_download_create_metadata_file(self, version_dir: _VersionDir, external_file: _PKGFile, external_pkg: ExternalPackage, requests_mock: 'Mocker'):
         expected_metadata = _PkgMetadata()
@@ -128,7 +132,7 @@ class TestPackageManager:
 
         requests_mock.get(TestPackageManager.PKG_URL, status_code=HTTPStatus.OK, headers={'ETag': expected_metadata.download_etag}, body=external_file.ref)
 
-        PackageManager(version_dir.path.parent).download(external_pkg)
+        local_pkg = PackageManager(version_dir.path.parent).download(external_pkg)
 
         assert version_dir.metadata_path.exists()
         actual_metadata = version_dir.read_metadata()
@@ -136,37 +140,40 @@ class TestPackageManager:
         assert actual_metadata.download_url == expected_metadata.download_url
         assert actual_metadata.download_filename == expected_metadata.download_filename
         assert actual_metadata.download_etag == expected_metadata.download_etag
+        assert local_pkg.new_file is True
 
     def test_download_overwrite_missing_metadata(self, loaded_version_dir: _VersionDir, external_file: _PKGFile, external_pkg: ExternalPackage,
                                                  requests_mock: 'Mocker'):
-        expected_filepath = loaded_version_dir.pkg_path
+        expected_filepath = loaded_version_dir.archive_path
         expected_size = expected_filepath.stat().st_size
         prev_file_mtime = expected_filepath.stat().st_mtime
         loaded_version_dir.metadata_path.unlink()
 
         requests_mock.get(TestPackageManager.PKG_URL, status_code=HTTPStatus.OK, additional_matcher=_without_etag_cache_matcher, body=external_file.ref)
 
-        PackageManager(loaded_version_dir.path.parent).download(external_pkg)
+        local_pkg = PackageManager(loaded_version_dir.path.parent).download(external_pkg)
 
         assert expected_filepath.exists()
         assert external_file.local_path.stat().st_size == expected_size
         assert external_file.local_path.stat().st_mtime != prev_file_mtime
         assert loaded_version_dir.metadata_path.exists()
+        assert local_pkg.new_file is True
 
     def test_download_overwrite_missing_pkg(self, loaded_version_dir: _VersionDir, external_file: _PKGFile, external_pkg: ExternalPackage,
                                             requests_mock: 'Mocker'):
-        expected_filepath = loaded_version_dir.pkg_path
+        expected_filepath = loaded_version_dir.archive_path
         expected_filepath.unlink()
 
         requests_mock.get(TestPackageManager.PKG_URL, status_code=HTTPStatus.OK, additional_matcher=_without_etag_cache_matcher, body=external_file.ref)
 
-        PackageManager(loaded_version_dir.path.parent).download(external_pkg)
+        local_pkg = PackageManager(loaded_version_dir.path.parent).download(external_pkg)
 
         assert expected_filepath.exists()
         assert loaded_version_dir.metadata_path.exists()
+        assert local_pkg.new_file is True
 
     def test_download_ignore_download(self, loaded_version_dir: _VersionDir, external_file: _PKGFile, external_pkg: ExternalPackage, requests_mock: 'Mocker'):
-        expected_filepath = loaded_version_dir.pkg_path
+        expected_filepath = loaded_version_dir.archive_path
         expected_pkg_mtime = expected_filepath.stat().st_mtime
         expected_metadata_path = loaded_version_dir.metadata_path
 
@@ -174,11 +181,12 @@ class TestPackageManager:
         requests_mock.get(TestPackageManager.PKG_URL, status_code=HTTPStatus.NOT_MODIFIED, request_headers={'if-none-match': expected_etag},
                           body=external_file.ref)
 
-        PackageManager(loaded_version_dir.path.parent).download(external_pkg)
+        local_pkg = PackageManager(loaded_version_dir.path.parent).download(external_pkg)
 
         assert expected_filepath.exists()
         assert expected_filepath.stat().st_mtime == expected_pkg_mtime
         assert expected_metadata_path.exists()
+        assert local_pkg.new_file is False
 
 
 def _without_etag_cache_matcher(request: 'Request'):

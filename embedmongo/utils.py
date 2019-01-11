@@ -16,7 +16,7 @@ from http import HTTPStatus
 import logging
 from pathlib import Path
 import tarfile
-from typing import Optional
+from typing import NamedTuple, Optional
 
 import requests
 import tqdm
@@ -27,7 +27,10 @@ from .log import TqdmToLogger
 logger = logging.getLogger(__name__)
 
 
-def download_file(url: str, dst: Path, etag: Optional[str] = None) -> Optional[str]:
+DownloadResult = NamedTuple('DownloadResult', [('etag', Optional[str]), ('saved', bool)])
+
+
+def download_file(url: str, dst: Path, etag: Optional[str] = None) -> DownloadResult:
     headers = None
     if etag:
         headers = {'If-None-Match': etag}
@@ -50,7 +53,9 @@ def download_file(url: str, dst: Path, etag: Optional[str] = None) -> Optional[s
                 msg=req.text
             )
             raise DownloadFileException(error_msg)
-        elif req.status_code == HTTPStatus.OK:
+        elif req.status_code == HTTPStatus.NOT_MODIFIED:
+            saved = False
+        else:
             logger.debug('Downloaded file {name} size: {size}'.format(name=filename, size=total_size))
             with dst.open("wb") as local_file, _progress_bar(filename, total_size) as pgbar:
                 chunk_size = 1024*1024
@@ -59,8 +64,9 @@ def download_file(url: str, dst: Path, etag: Optional[str] = None) -> Optional[s
                     if chunk:
                         local_file.write(chunk)
                         pgbar.update(len(chunk))
+            saved = True
 
-        return new_etag
+        return DownloadResult(etag=new_etag, saved=saved)
 
 
 def extract_file(src: Path, dst: Path, strip_level: Optional[int] = 0) -> None:
