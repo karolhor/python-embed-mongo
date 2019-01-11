@@ -103,11 +103,11 @@ class _VersionDir:
         return _PkgMetadata(content)
 
     @staticmethod
-    def from_ext_package(workspace_dir: Path, pkg: ExternalPackage) -> _VersionDir:
+    def from_ext_package(workspace_dir: Path, pkg: ExternalPackage) -> '_VersionDir':
         return _VersionDir(workspace_dir, pkg.version, pkg.filename)
 
     @staticmethod
-    def from_local_package(workspace_dir: Path, pkg: LocalPackage) -> _VersionDir:
+    def from_local_package(workspace_dir: Path, pkg: LocalPackage) -> '_VersionDir':
         return _VersionDir(workspace_dir, pkg.version, pkg.path.name)
 
 
