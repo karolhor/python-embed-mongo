@@ -20,7 +20,7 @@ import typing
 import pytest
 
 from embedmongo.exceptions import InvalidOSException, PackageNotFoundException
-from embedmongo.package import _PkgMetadata, _VersionDir, ExternalPackage, PackageDiscovery, PackageManager, Version
+from embedmongo.package import _PkgMetadata, _VersionDir, ExternalPackage, LocalPackage, PackageDiscovery, PackageManager, Version
 from embedmongo.system import OSInfo
 
 if typing.TYPE_CHECKING:
@@ -100,6 +100,12 @@ class TestPackageManager:
         metadata.download_etag = "abcd"
 
         version_dir.save_metadata(metadata)
+
+        extracted_bin_dir = version_dir.extracted_dir / 'bin'
+        extracted_bin_dir.mkdir(parents=True, exist_ok=True)
+
+        execute_file = extracted_bin_dir / 'mongod'
+        execute_file.touch()
 
         return version_dir
 
@@ -187,6 +193,48 @@ class TestPackageManager:
         assert expected_filepath.stat().st_mtime == expected_pkg_mtime
         assert expected_metadata_path.exists()
         assert local_pkg.new_file is False
+
+    def test_extract_skip_if_extracted_dir_exists(self, loaded_version_dir: _VersionDir):
+        local_pkg = LocalPackage(version=loaded_version_dir.version, path=loaded_version_dir.archive_path, new_file=False)
+        extracted_dir_mtime = loaded_version_dir.extracted_dir.stat().st_mtime
+        expected_execute_file = loaded_version_dir.extracted_dir / 'bin' / 'mongod'
+        expected_execute_file_mtime = expected_execute_file.stat().st_mtime
+
+        bin_dir = PackageManager(loaded_version_dir.path.parent).extract(local_pkg)
+        execute_file = bin_dir / 'mongod'
+
+        assert bin_dir.parent == loaded_version_dir.extracted_dir
+        assert bin_dir.parent.stat().st_mtime == extracted_dir_mtime
+        assert execute_file.stat().st_mtime == expected_execute_file_mtime
+
+    @pytest.mark.parametrize('new_file', [True, False])
+    def test_extract_if_lack_of_extracted_dir(self, loaded_version_dir: _VersionDir, new_file):
+        local_pkg = LocalPackage(version=loaded_version_dir.version, path=loaded_version_dir.archive_path, new_file=new_file)
+        shutil.rmtree(str(loaded_version_dir.extracted_dir))
+
+        bin_dir = PackageManager(loaded_version_dir.path.parent).extract(local_pkg)
+        execute_file = bin_dir / 'mongod'
+
+        assert execute_file.exists()
+
+    def test_extract_if_archive_is_new_file(self, loaded_version_dir: _VersionDir):
+        local_pkg = LocalPackage(version=loaded_version_dir.version, path=loaded_version_dir.archive_path, new_file=True)
+        extracted_dir_mtime = loaded_version_dir.extracted_dir.stat().st_mtime
+        expected_execute_file = loaded_version_dir.extracted_dir / 'bin' / 'mongod'
+        expected_execute_file_mtime = expected_execute_file.stat().st_mtime
+
+        bin_dir = PackageManager(loaded_version_dir.path.parent).extract(local_pkg)
+        execute_file = bin_dir / 'mongod'
+
+        assert bin_dir.parent == loaded_version_dir.extracted_dir
+        assert bin_dir.parent.stat().st_mtime != extracted_dir_mtime
+        assert execute_file.stat().st_mtime != expected_execute_file_mtime
+
+    def test_clean_removes_recurse_version_dir(self, loaded_version_dir: _VersionDir):
+        PackageManager(loaded_version_dir.path.parent).clean(loaded_version_dir.version)
+
+        assert loaded_version_dir.path.exists() is False
+        assert loaded_version_dir.path.parent.exists()
 
 
 def _without_etag_cache_matcher(request: 'Request'):

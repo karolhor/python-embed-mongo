@@ -82,14 +82,15 @@ class _PkgMetadata:
 class _VersionDir:
     _METADATA_FILENAME = 'metadata.json'
 
-    def __init__(self, workspace_dir: Path, version: Version, archive_filename: str):
+    def __init__(self, workspace_dir: Path, version: Version, archive_filename: Optional[str]):
         self.version = version
         self.path = workspace_dir / self.version.version
-        self.archive_path = self.path / archive_filename
-        self.extracted_dir = self.path / self.archive_path.stem
-        self.metadata_path = self.path / self._METADATA_FILENAME
-
         self.path.mkdir(parents=True, exist_ok=True)
+
+        if archive_filename:
+            self.archive_path = self.path / archive_filename
+            self.extracted_dir = self.path / self.archive_path.stem
+            self.metadata_path = self.path / self._METADATA_FILENAME
 
     def save_metadata(self, metadata: _PkgMetadata) -> None:
         self.metadata_path.write_text(metadata.to_json())
@@ -155,8 +156,9 @@ class PackageManager:
 
         return bin_dir
 
-    def clean(self, pkg: LocalPackage) -> None:
-        pass
+    def clean(self, version: Version, ignore_errors: bool = False) -> None:
+        version_dir = _VersionDir(self._workspace_dir, version, archive_filename=None)
+        shutil.rmtree(str(version_dir.path), ignore_errors=ignore_errors)
 
 
 class PackageDiscovery:
