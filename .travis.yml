@@ -39,4 +39,4 @@ before_install:
     fi
 
   - pip install poetry tox
-script: tox
+script: tox -- --log-cli-level=INFO

@@ -151,10 +151,7 @@ class PackageManager:
         else:
             logger.info("No change of archive detected. Skipping pkg extraction.".format(pkg=pkg.path.name, dst=version_dir.extracted_dir))
 
-        bin_dir = version_dir.extracted_dir / 'bin'
-        logger.info(bin_dir)
-
-        return bin_dir
+        return version_dir.extracted_dir / 'bin'
 
     def clean(self, version: Version, ignore_errors: bool = False) -> None:
         version_dir = _VersionDir(self._workspace_dir, version, archive_filename=None)
