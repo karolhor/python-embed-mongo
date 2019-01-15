@@ -222,10 +222,10 @@ class TestPackageManager:
         extracted_dir_mtime = loaded_version_dir.extracted_dir.stat().st_mtime
         expected_execute_file = loaded_version_dir.extracted_dir / 'bin' / 'mongod'
         expected_execute_file_mtime = expected_execute_file.stat().st_mtime
-
+        print(loaded_version_dir.extracted_dir.stat())
         bin_dir = PackageManager(loaded_version_dir.path.parent).extract(local_pkg)
         execute_file = bin_dir / 'mongod'
-
+        print(bin_dir.parent.stat())
         assert bin_dir.parent == loaded_version_dir.extracted_dir
         assert bin_dir.parent.stat().st_mtime != extracted_dir_mtime
         assert execute_file.stat().st_mtime != expected_execute_file_mtime
