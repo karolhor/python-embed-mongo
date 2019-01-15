@@ -13,6 +13,7 @@
 # limitations under the License.
 
 from http import HTTPStatus
+import logging
 from pathlib import Path
 import shutil
 import typing
@@ -27,6 +28,8 @@ if typing.TYPE_CHECKING:
     from _pytest.monkeypatch import MonkeyPatch  # noqa: F401
     from requests_mock import Mocker
     from requests.models import Request
+
+logger = logging.getLogger(__name__)
 
 
 class TestPackageDiscovery:
@@ -196,16 +199,13 @@ class TestPackageManager:
 
     def test_extract_skip_if_extracted_dir_exists(self, loaded_version_dir: _VersionDir):
         local_pkg = LocalPackage(version=loaded_version_dir.version, path=loaded_version_dir.archive_path, new_file=False)
-        extracted_dir_mtime = loaded_version_dir.extracted_dir.stat().st_mtime
-        expected_execute_file = loaded_version_dir.extracted_dir / 'bin' / 'mongod'
-        expected_execute_file_mtime = expected_execute_file.stat().st_mtime
+        dummy_file = loaded_version_dir.extracted_dir / 'dummy'
+        dummy_file.touch()
 
         bin_dir = PackageManager(loaded_version_dir.path.parent).extract(local_pkg)
-        execute_file = bin_dir / 'mongod'
 
         assert bin_dir.parent == loaded_version_dir.extracted_dir
-        assert bin_dir.parent.stat().st_mtime == extracted_dir_mtime
-        assert execute_file.stat().st_mtime == expected_execute_file_mtime
+        assert loaded_version_dir.path.exists()
 
     @pytest.mark.parametrize('new_file', [True, False])
     def test_extract_if_lack_of_extracted_dir(self, loaded_version_dir: _VersionDir, new_file):
@@ -219,16 +219,13 @@ class TestPackageManager:
 
     def test_extract_if_archive_is_new_file(self, loaded_version_dir: _VersionDir):
         local_pkg = LocalPackage(version=loaded_version_dir.version, path=loaded_version_dir.archive_path, new_file=True)
-        extracted_dir_mtime = loaded_version_dir.extracted_dir.stat().st_mtime
-        expected_execute_file = loaded_version_dir.extracted_dir / 'bin' / 'mongod'
-        expected_execute_file_mtime = expected_execute_file.stat().st_mtime
-        print(loaded_version_dir.extracted_dir.stat())
+        dummy_file = loaded_version_dir.extracted_dir / 'dummy'
+        dummy_file.touch()
+
         bin_dir = PackageManager(loaded_version_dir.path.parent).extract(local_pkg)
-        execute_file = bin_dir / 'mongod'
-        print(bin_dir.parent.stat())
+
         assert bin_dir.parent == loaded_version_dir.extracted_dir
-        assert bin_dir.parent.stat().st_mtime != extracted_dir_mtime
-        assert execute_file.stat().st_mtime != expected_execute_file_mtime
+        assert dummy_file.exists() is False
 
     def test_clean_removes_recurse_version_dir(self, loaded_version_dir: _VersionDir):
         PackageManager(loaded_version_dir.path.parent).clean(loaded_version_dir.version)

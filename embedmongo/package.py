@@ -144,7 +144,7 @@ class PackageManager:
         if pkg.new_file and version_dir.extracted_dir.exists():
             logger.info("New version of archive {pkg}. Removing old extracted directory {dst}.".format(pkg=pkg.path.name, dst=version_dir.extracted_dir))
             shutil.rmtree(str(version_dir.extracted_dir))
-            print(version_dir.extracted_dir.exists())
+            logger.info(version_dir.extracted_dir.exists())
 
         if not version_dir.extracted_dir.exists():
             logger.info("Extracting {pkg} to {dst}".format(pkg=pkg.path.name, dst=version_dir.extracted_dir))
