@@ -14,6 +14,7 @@
 
 import logging
 
+from pathlib import Path
 import embedmongo
 from embedmongo import EmbedMongo, Version
 
@@ -21,7 +22,11 @@ logger = logging.getLogger(embedmongo.__name__)
 
 
 def main() -> None:
-    EmbedMongo().prepare(Version.V4_0_LATEST)
+    workspace = Path.home() / 'embemongo'
+    workspace.mkdir(parents=True, exist_ok=True)
+    em = EmbedMongo(workspace_dir=workspace)
+    for v in Version:
+        em.prepare(v)
 
 
 if __name__ == '__main__':

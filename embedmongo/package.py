@@ -48,7 +48,7 @@ class Version(enum.Enum):
     V3_7_9 = '3.7.9'
 
     V4_0_LATEST = '4.0-latest'
-    V4_0_4 = '4.0.4'
+    V4_0_5 = '4.0.5'
 
     def __init__(self, version: str):
         self.version = version
@@ -150,7 +150,7 @@ class PackageManager:
             logger.info("Extracting {pkg} to {dst}".format(pkg=pkg.path.name, dst=version_dir.extracted_dir))
             extract_file(pkg.path, version_dir.extracted_dir, strip_level=1)
         else:
-            logger.info("No change of archive detected. Skipping pkg extraction.".format(pkg=pkg.path.name, dst=version_dir.extracted_dir))
+            logger.info("No changes of archive detected. Skipping pkg extraction.".format(pkg=pkg.path.name, dst=version_dir.extracted_dir))
 
         return version_dir.extracted_dir / 'bin'
 
@@ -175,7 +175,7 @@ class PackageDiscovery:
             Version.V3_6_9:      'mongodb-osx-ssl-x86_64-3.6.9.tgz',
             Version.V3_7_9:      'mongodb-osx-ssl-x86_64-3.7.9.tgz',
             Version.V4_0_LATEST: 'mongodb-osx-ssl-x86_64-v4.0-latest.tgz',
-            Version.V4_0_4:      'mongodb-osx-ssl-x86_64-4.0.4.tgz',
+            Version.V4_0_5:      'mongodb-osx-ssl-x86_64-4.0.5.tgz',
         },
 
         'linux': {
@@ -192,7 +192,7 @@ class PackageDiscovery:
             Version.V3_6_9:      'mongodb-linux-x86_64-3.6.9.tgz',
             Version.V3_7_9:      'mongodb-linux-x86_64-3.7.9.tgz',
             Version.V4_0_LATEST: 'mongodb-linux-x86_64-v4.0-latest.tgz',
-            Version.V4_0_4:      'mongodb-linux-x86_64-4.0.4.tgz',
+            Version.V4_0_5:      'mongodb-linux-x86_64-4.0.5.tgz',
         }
     }
 
